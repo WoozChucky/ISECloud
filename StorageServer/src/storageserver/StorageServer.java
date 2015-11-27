@@ -18,6 +18,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -36,11 +37,17 @@ public class StorageServer {
     
     ServerSocket myServerSocket;
     boolean serverOn = true;
+    boolean isMaster = false;
     File workingDir;
+    ServerSocket[] serversList;
 
     public StorageServer(int port, File dir) {
-        
-        try {
+    
+        if(available(port))
+        {
+            isMaster = true;
+            
+            try {
             InetAddress addr = InetAddress.getByName("192.168.1.73");
             
             myServerSocket = new ServerSocket(port, MAX_USERS, addr);
@@ -48,13 +55,38 @@ public class StorageServer {
             if(!workingDir.exists())
                 workingDir.mkdir();
             
-            System.out.println("StorageServer created successfully.");
+            System.out.println("Master StorageServer created successfully at port " + port + ".");
             
-        } catch (IOException ex) {
-            Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Could not create storage server on port 7000. Exiting."); 
-            System.exit(-1); 
+            } catch (IOException ex) {
+                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+                System.out.println("Could not create storage server on port " + port +". Exiting."); 
+                System.exit(-1); 
+            }
         }
+        else
+        {
+            port++;
+            isMaster = false;
+            
+            try {
+            InetAddress addr = InetAddress.getByName("192.168.1.73");
+            
+            myServerSocket = new ServerSocket(port, MAX_USERS, addr);
+            workingDir = dir;
+            if(!workingDir.exists())
+                workingDir.mkdir();
+            
+            System.out.println("Secundary StorageServer created successfully at port " + port + ".");
+            
+            } catch (IOException ex) {
+                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+                System.out.println("Could not create storage server on port " + port +". Exiting."); 
+                System.exit(-1); 
+            }
+        }
+        
+        
+        
     }
     
     public void listen()
@@ -138,7 +170,8 @@ public class StorageServer {
             
             try
             {        
-                in = new ObjectInputStream(myClientSocket.getInputStream()); 
+                
+                in = new ObjectInputStream(myClientSocket.getInputStream());
                 out = new ObjectOutputStream(myClientSocket.getOutputStream()); 
                 
                 while(connected)
@@ -157,7 +190,7 @@ public class StorageServer {
 //                        out.flush(); 
 //                    }
 
-                    handleMessage();
+                    //handleMessage();
 
                     out.writeObject(messageToSend);
                     System.out.println("Server Sent :" + messageToSend.Command);
@@ -184,6 +217,42 @@ public class StorageServer {
             }
         }
         
+    }
+    
+    /**
+    * Checks to see if a specific port is available.
+    *
+    * @param port the port to check for availability
+    */
+    private static boolean available(int port) {
+        if (port < 5000 || port > 30000) {
+            throw new IllegalArgumentException("Invalid start port: " + port);
+        }
+
+        ServerSocket ss = null;
+        DatagramSocket ds = null;
+        try {
+            ss = new ServerSocket(port);
+            ss.setReuseAddress(true);
+            ds = new DatagramSocket(port);
+            ds.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+        } finally {
+            if (ds != null) {
+                ds.close();
+            }
+
+            if (ss != null) {
+                try {
+                    ss.close();
+                } catch (IOException e) {
+                    /* should not be thrown */
+                }
+            }
+        }
+
+        return false;
     }
     
     public static void main(String[] args) {
