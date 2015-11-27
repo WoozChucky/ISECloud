@@ -3,6 +3,7 @@ package servers;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.ServerSocket;
 import java.net.SocketException;
 import java.util.HashMap;
 import servers.message.*;
@@ -38,8 +39,14 @@ public class DirectoryService {
     
     private HashMap<String, Runnable> commandsMap;
     
+
     public DirectoryService(int port) throws SocketException
     {        
+        if(!available(port)) {
+            System.err.println("Directory Service already running at port " + port + ".");
+            System.exit(-1);
+        }
+        
         this.socket = null;
         packet = new DatagramPacket(receiveData, receiveData.length);
         socket = new DatagramSocket(port);
@@ -53,7 +60,6 @@ public class DirectoryService {
         commandsMap.put("help", this::help);
         commandsMap.put("tcp", this::tcp);
         logins = new UserLogins(LOGINS_FILE);
-        //logins.dispLogins();
     }
     
     private void login()
@@ -219,6 +225,42 @@ public class DirectoryService {
             messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
             messageToSend.ClientStatus = messageToReceive.ClientStatus;
         }
+    }
+    
+    /**
+    * Checks to see if a specific port is available.
+    *
+    * @param port the port to check for availability
+    */
+    private static boolean available(int port) {
+        if (port < 5000 || port > 30000) {
+            throw new IllegalArgumentException("Invalid start port: " + port);
+        }
+
+        ServerSocket ss = null;
+        DatagramSocket ds = null;
+        try {
+            ss = new ServerSocket(port);
+            ss.setReuseAddress(true);
+            ds = new DatagramSocket(port);
+            ds.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+        } finally {
+            if (ds != null) {
+                ds.close();
+            }
+
+            if (ss != null) {
+                try {
+                    ss.close();
+                } catch (IOException e) {
+                    /* should not be thrown */
+                }
+            }
+        }
+
+        return false;
     }
     
 }
