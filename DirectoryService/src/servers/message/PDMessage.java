@@ -19,11 +19,14 @@ public class PDMessage implements Serializable {
     public String Command;
     public String[] Commands;  
     
+    public String Username;
+    
     public PDMessage()
     {
         this.ClientStatus = 0;
         this.Command = null;
         this.Commands = null;
+        this.Username = "";
     }   
     
     public void createMessage(String msg)

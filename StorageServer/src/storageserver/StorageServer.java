@@ -10,14 +10,10 @@
  */
 package storageserver;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -25,6 +21,7 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import servers.MulticastServer;
 import servers.message.PDMessage;
 
 /**
@@ -34,15 +31,14 @@ import servers.message.PDMessage;
 public class StorageServer {
 
     public static final int MAX_USERS = 250;
-    
+    private int port;
     ServerSocket myServerSocket;
     boolean serverOn = true;
     boolean isMaster = false;
     File workingDir;
-    ServerSocket[] serversList;
 
-    public StorageServer(int port, File dir) {
-    
+    public StorageServer(int _port, File dir) {
+        port = _port;
         if(available(port))
         {
             isMaster = true;
@@ -91,7 +87,10 @@ public class StorageServer {
     
     public void listen()
     {
+        System.out.println("Heartbeat System has started");
+        new MulticastServer(port, isMaster).start();
         System.out.println("Listening for connections...");
+        
         while(serverOn)
         {
             try {

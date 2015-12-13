@@ -1,10 +1,13 @@
 package servers;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.SocketException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import servers.message.*;
 import servers.security.UserLogins;
@@ -23,7 +26,7 @@ import servers.security.UserLogins;
  */
 public class DirectoryService {
         
-    public static final int MAX_SIZE = 2048;
+    public static final int MAX_SIZE = 2*1024;
     public static final String LOGINS_FILE = "logins.txt";
     
     private byte[] receiveData = new byte[MAX_SIZE];
@@ -38,6 +41,8 @@ public class DirectoryService {
     private UserLogins logins;
     
     private HashMap<String, Runnable> commandsMap;
+    
+    private MulticastClient multiCastClient;
     
 
     public DirectoryService(int port) throws SocketException
@@ -59,7 +64,47 @@ public class DirectoryService {
         commandsMap.put("get", this::help);
         commandsMap.put("help", this::help);
         commandsMap.put("tcp", this::tcp);
+        commandsMap.put("show", this::show);
         logins = new UserLogins(LOGINS_FILE);
+        multiCastClient = new MulticastClient();
+    }
+    
+    private void show()
+    {
+        if (messageToReceive.ClientStatus != 1)
+        {
+            messageToSend.createMessage("You must be logged in to access directory files.");
+            messageToSend.ClientStatus = 0;
+            return;
+        }
+        else
+        {
+            if(messageToReceive.Commands.length != 1)
+            {
+                messageToSend.createMessage("Invalid command!\n Arguments are only 'show'");
+                messageToSend.ClientStatus = 1;
+            }
+            File userDir = new File("Data/" + messageToReceive.Username + "/");
+            
+            System.out.println(userDir.getAbsolutePath());
+            
+            File[] lista = userDir.listFiles();
+            
+            String msg = new String();
+            msg += "\n\tFiles Available\n";
+            for(File f : lista)
+            {
+                if(f.isFile())
+                {
+                    msg += ("\n" + f.getName());
+                }
+            }
+            msg+="\n";
+
+              
+
+            messageToSend.createMessage(msg);
+        }
     }
     
     private void login()
@@ -85,8 +130,14 @@ public class DirectoryService {
                 {
                     messageToSend.createMessage(logins.Usernames[i] + " logged in successfully!");
                     messageToSend.ClientStatus = 1;
-
-                    return;
+                    messageToSend.Username = logins.Usernames[i];
+                    
+                    File userFolder = new File("Data/" + logins.Usernames[i]);
+                    if(!userFolder.exists() && !userFolder.isDirectory())
+                    {
+                        userFolder.mkdir();
+                    }
+                    return;                    
                 }   
             }
             
@@ -152,7 +203,7 @@ public class DirectoryService {
             myObject[i] = receiveData[i];
         }
             
-        request = MessageSerializer.deserializeMessageReceived(myObject);
+        request = MessageSerializer.deserializePDMessage(myObject);
             
         return request;
         
@@ -162,6 +213,8 @@ public class DirectoryService {
     
     public void processRequests() throws IOException
     {
+        
+        multiCastClient.start();
         
         if(socket == null){
             return;
@@ -183,7 +236,7 @@ public class DirectoryService {
             
             //System.out.println("PDMessage to send -> " + messageToSend.Command);
 
-            packet.setData(MessageSerializer.serializeMessageToSend(messageToSend));
+            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
             
             //O ip e porto de destino jÃ¡ se encontram definidos em packet
             socket.send(packet);

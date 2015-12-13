@@ -18,7 +18,7 @@ import servers.DirectoryService;
  */
 public final class MessageSerializer {
     
-    public static final byte[] serializeMessageToSend(PDMessage msg)
+    public static final byte[] serializePDMessage(PDMessage msg)
     {
         try {
             
@@ -40,7 +40,29 @@ public final class MessageSerializer {
         return null;
     }
     
-    public static final PDMessage deserializeMessageReceived(byte[] data)
+    public static final byte[] serializeHeartbeat(Heartbeat msg)
+    {
+        try {
+            
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(DirectoryService.MAX_SIZE);
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            
+            oos.writeObject(msg);
+            oos.close();
+            
+            byte[] obj = baos.toByteArray();
+            baos.close();
+            return obj;
+        
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    public static final PDMessage deserializePDMessage(byte[] data)
     {
         try {
             ObjectInputStream iStream = new ObjectInputStream(new ByteArrayInputStream(data));
@@ -60,7 +82,29 @@ public final class MessageSerializer {
         {
             System.out.println("iStream -> " + e.toString());
         }
-        
+        return null;
+    }
+    
+    public static final Heartbeat deserializeHeartbeat(byte[] data)
+    {
+        try {
+            ObjectInputStream iStream = new ObjectInputStream(new ByteArrayInputStream(data));
+            try {
+                Heartbeat msg = (Heartbeat) iStream.readObject();
+                iStream.close();
+            
+                return msg;
+            }
+            catch (IOException | ClassNotFoundException e)
+            {
+                e.printStackTrace();
+            }
+            
+        } 
+        catch (IOException e)
+        {
+            System.out.println("iStream -> " + e.toString());
+        }
         return null;
     }
 }

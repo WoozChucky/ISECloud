@@ -57,7 +57,7 @@ public class UDPService {
     
     public void send(PDMessage msg)
     {
-        byte[] data = MessageSerializer.serializeMessageToSend(msg);
+        byte[] data = MessageSerializer.serializePDMessage(msg);
         
         packet = new DatagramPacket(data, data.length, serverAddr,
                     serverPort);
@@ -82,7 +82,7 @@ public class UDPService {
             
             System.arraycopy(receiveData, 0, myObject, 0, packet.getLength());
             
-            PDMessage msg = MessageSerializer.deserializeMessageReceived(myObject);
+            PDMessage msg = MessageSerializer.deserializePDMessage(myObject);
             
             return msg;
             
