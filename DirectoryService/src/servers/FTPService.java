@@ -33,11 +33,8 @@ public class FTPService {
         
         int count;
         byte[] buffer = new byte[1024];
-        
 
-        System.out.println("Waiting...");
         sock = servsock.accept();
-        System.out.println("Accepted connection : " + sock);
         
         OutputStream out = sock.getOutputStream();
         BufferedInputStream in = new BufferedInputStream(new FileInputStream(myFile));
@@ -50,7 +47,6 @@ public class FTPService {
         in.close();
         servsock.close();
         sock.close();
-        System.out.println("Done.");
     }
     
     public static void ReceiveFileFromServer(String userDir, String filename) throws IOException
@@ -66,13 +62,10 @@ public class FTPService {
         InputStream in = socket.getInputStream();
         while((count=in.read(buffer)) >= 0){
             fos.write(buffer, 0, count);
-            System.out.println("Writing " + count);
         }
-        System.out.println("Closed.");
         fos.close();
         in.close();
         socket.close();
-        System.out.println("Done.");
     }
     
 }

@@ -1,5 +1,8 @@
 package servers;
 
+import servers.messages.ResponseType;
+import servers.messages.PDMessage;
+import servers.messages.MessageSerializer;
 import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -9,7 +12,6 @@ import java.net.SocketException;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import servers.message.*;
 import servers.security.UserLogins;
 
 /**
@@ -67,34 +69,42 @@ public class DirectoryService {
         multiCastClient = new MulticastClient();
     }
     
-    //TODO: Check if file exists
-    //TODO: Check if user is logged in
-    //TODO: Workaround for packet sending here
     private void download() throws IOException
-    {
-        System.out.println("Username: " + messageToReceive.Username);
+    {        
+        //Login Verification
+        if(messageToReceive.ClientStatus != 1)
+        {
+            messageToSend.createMessage("You must be logged in download files.");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            return;
+        }
         
+        //Arguments Verification
         if(messageToReceive.Commands.length != 2)
         {
-            messageToSend.createMessage("Invalid Command!\nArguments must be <login filename>");
-            messageToSend.ClientStatus = 0;
+            messageToSend.createMessage("Invalid Command!\nArguments must be <download filename>.");
+            return;
         }
-        else
-        { 
-            messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
-            messageToSend.ClientStatus = 3;
-            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
-            socket.send(packet);
-            
-            FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
-            
-            messageToSend.createMessage("File transfer complete!");
-            messageToSend.ClientStatus = 0;
-            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
-            socket.send(packet);
-            
-            
+        
+        //File Exists Verification
+        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        {
+            messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
+            return;
         }
+
+        messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
+        messageToSend.ResponseCODE = ResponseType.DOWNLOAD;
+        packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+        socket.send(packet);
+
+        FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
+
+        messageToSend.createMessage("File transfer complete!");
+        messageToSend.ResponseCODE = ResponseType.FINISH_DOWNLOAD;
+        packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+        socket.send(packet);
+
     }
     
     private void show()
@@ -102,46 +112,44 @@ public class DirectoryService {
         if (messageToReceive.ClientStatus != 1)
         {
             messageToSend.createMessage("You must be logged in to access directory files.");
-            messageToSend.ClientStatus = 0;
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
             return;
         }
-        else
+
+        if(messageToReceive.Commands.length != 1)
         {
-            if(messageToReceive.Commands.length != 1)
-            {
-                messageToSend.createMessage("Invalid command!\n Arguments are only 'show'");
-                messageToSend.ClientStatus = 1;
-            }
-            File userDir = new File("Data/" + messageToReceive.Username + "/");
-            
-            System.out.println(userDir.getAbsolutePath());
-            
-            File[] lista = userDir.listFiles();
-            
-            String msg = new String();
-            msg += "\n\tFiles Available\n";
-            for(File f : lista)
-            {
-                if(f.isFile())
-                {
-                    float Bs = f.length();
-                    float KBs = Bs / 1024; 
-                    float MBs = KBs / 1024;
-
-                    if(Bs < 1024)
-                        msg += ("\n- " + f.getName() + "\t" + Math.round(Bs * 100d) / 100d + " Bytes");
-                    else if (Bs < 1048576)
-                        msg += ("\n- " + f.getName() + "\t" + Math.round(KBs* 100d) / 100d + " Kilobytes");
-                    else 
-                        msg += ("\n- " + f.getName() + "\t" + Math.round(MBs* 100d) / 100d + " Megabytes");
-                }
-            }
-            msg+="\n";
-
-              
-
-            messageToSend.createMessage(msg);
+            messageToSend.createMessage("Invalid command!\n Arguments are only 'show'");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            return;
         }
+
+        File userDir = new File("Data/" + messageToReceive.Username + "/");
+
+        System.out.println(userDir.getAbsolutePath());
+
+        File[] lista = userDir.listFiles();
+
+        String msg = new String();
+        msg += "\n\tFiles Available\n";
+        for(File f : lista)
+        {
+            if(f.isFile())
+            {
+                float Bs = f.length();
+                float KBs = Bs / 1024; 
+                float MBs = KBs / 1024;
+
+                if(Bs < 1024)
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(Bs * 100d) / 100d + " Bytes");
+                else if (Bs < 1048576)
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(KBs* 100d) / 100d + " Kilobytes");
+                else 
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(MBs* 100d) / 100d + " Megabytes");
+            }
+        }
+        msg+="\n";
+
+        messageToSend.createMessage(msg);
     }
     
     private void login()
@@ -151,36 +159,35 @@ public class DirectoryService {
         {
             messageToSend.createMessage("Invalid Command!\nArguments must be <login username password>");
             messageToSend.ClientStatus = 0;
+            return;
         }
-        else
-        {            
-            if(messageToReceive.ClientStatus == 1)
+         
+        if(messageToReceive.ClientStatus == 1)
+        {
+            messageToSend.createMessage("Already logged in.");
+            return;
+        }
+
+        for (int i = 0; i <= logins.Records; i++) 
+        {
+            if(messageToReceive.Commands[1].equals(logins.Usernames[i]) &&
+                    messageToReceive.Commands[2].equals(logins.Passwords[i]))
             {
-                messageToSend.createMessage("Already logged in.");
-                return;
-            }
-            
-            for (int i = 0; i <= logins.Records; i++) 
-            {
-                if(messageToReceive.Commands[1].equals(logins.Usernames[i]) &&
-                        messageToReceive.Commands[2].equals(logins.Passwords[i]))
+                messageToSend.createMessage(logins.Usernames[i] + " logged in successfully!");
+                messageToSend.ClientStatus = 1;
+                messageToSend.Username = logins.Usernames[i];
+
+                File userFolder = new File("Data/" + logins.Usernames[i]);
+                if(!userFolder.exists() && !userFolder.isDirectory())
                 {
-                    messageToSend.createMessage(logins.Usernames[i] + " logged in successfully!");
-                    messageToSend.ClientStatus = 1;
-                    messageToSend.Username = logins.Usernames[i];
-                    
-                    File userFolder = new File("Data/" + logins.Usernames[i]);
-                    if(!userFolder.exists() && !userFolder.isDirectory())
-                    {
-                        userFolder.mkdir();
-                    }
-                    return;                    
-                }   
-            }
-            
-            messageToSend.createMessage("Invalid login.");
-            messageToSend.ClientStatus = 0;
+                    userFolder.mkdir();
+                }
+                return;                    
+            }   
         }
+
+        messageToSend.createMessage("Invalid login.");
+        messageToSend.ClientStatus = 0;
     }
     private void logout()
     {
@@ -194,7 +201,7 @@ public class DirectoryService {
     }
     private void exit()
     {
-        messageToSend.ClientStatus = -1;
+        messageToSend.ResponseCODE = ResponseType.EXIT;
         messageToSend.createMessage("Exiting...");
     }
     
@@ -273,10 +280,14 @@ public class DirectoryService {
             
             //System.out.println("PDMessage to send -> " + messageToSend.Command);
 
-            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+            if(messageToSend.ResponseCODE != ResponseType.FINISH_DOWNLOAD)
+            {
+                packet.setData(MessageSerializer.serializePDMessage(messageToSend));
             
-            //O ip e porto de destino jÃ¡ se encontram definidos em packet
-            socket.send(packet);
+                //O ip e porto de destino jÃ¡ se encontram definidos em packet
+                socket.send(packet);
+            }
+            messageToSend.ResponseCODE = ResponseType.NONE;
             
         }
     }   
@@ -314,6 +325,7 @@ public class DirectoryService {
         {
             messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
             messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            messageToSend.ResponseCODE = messageToReceive.ResponseCODE;
         }
     }
     

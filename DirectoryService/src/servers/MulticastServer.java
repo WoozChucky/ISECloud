@@ -13,8 +13,8 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import servers.message.Heartbeat;
-import servers.message.MessageSerializer;
+import servers.messages.Heartbeat;
+import servers.messages.MessageSerializer;
 
 /**
  *

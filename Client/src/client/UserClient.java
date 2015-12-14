@@ -1,6 +1,8 @@
 package client;
 
 
+import servers.messages.PDMessage;
+import servers.messages.ResponseType;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -10,7 +12,6 @@ import java.net.InetAddress;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import servers.message.*;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -43,7 +44,7 @@ public class UserClient {
 
         
         if(args.length != 3){
-            System.out.println("["+ PID +"] Missing server address, port and working directory.\n\tEx: 192.168.1.73 27015 Downloads/Java");
+            System.out.println("["+ PID +"] Missing server address, port and working directory.\n\tEx: 192.168.1.73 27015 Downloads");
             try {
                 Thread.sleep(5000);
             } catch (InterruptedException ex) {
@@ -65,7 +66,7 @@ public class UserClient {
         /* While-Loop for UDP Service */
         while (isUDPRunning) 
         {       
-            if(msg.ClientStatus == 2) break;
+            if(msg.ResponseCODE == ResponseType.EXIT) break;
             
             System.out.print("["+ PID +"] Insert command: ");
             buf = scanIn.nextLine();
@@ -83,13 +84,13 @@ public class UserClient {
             udpService.handleMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath());
         }
         
-        tcpService = new TCPService(tcpConn.Host, tcpConn.Port);
-        isTCPRunning = true;
+        //tcpService = new TCPService(tcpConn.Host, tcpConn.Port);
+        //isTCPRunning = true;
         
         //ObjectInputStream in = new ObjectInputStream(tcpService.sock().getInputStream());
         //ObjectOutputStream oos = new ObjectOutputStream(tcpService.sock().getOutputStream());
         
-        /* While-Loop for TCP Service */
+        /* While-Loop for TCP Service 
         while (isTCPRunning)
         {
             System.out.print("["+ PID +"] Insert command: ");
@@ -109,6 +110,7 @@ public class UserClient {
             
             tcpService.handleMessage(msg);
         }
+        */
    }
     
 }

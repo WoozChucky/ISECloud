@@ -15,8 +15,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.DirectoryService;
 import servers.FTPService;
-import servers.message.PDMessage;
-import servers.message.MessageSerializer;
+import servers.messages.PDMessage;
+import servers.messages.MessageSerializer;
+import servers.messages.ResponseType;
 
 /**
  *
@@ -97,26 +98,28 @@ public class UDPService {
     
     public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir) throws IOException
     {
-        switch(msg.ClientStatus)
+        switch(msg.ResponseCODE)
         {
-            case -1:
-                System.exit(-1);
-                break;
-            case 0:
-                running = true;
-                break;
-            case 1:
-                running = true;
-                break;
-            case 2:
+            case EXIT:
                 socket.close();
-                running = false;
-                tcpConn.Host = "192.168.1.73";
-                tcpConn.Port = 7000;
-            break;
-            case 3:
+                System.exit(-1);
+                //running = false;
+                //tcpConn.Host = "192.168.1.73";
+                //tcpConn.Port = 7000;
+                break;
+                
+            case NONE:
+                running = true;
+                break;
+                
+            case DOWNLOAD:
+                //Receives the File
                 FTPService.ReceiveFileFromServer(dir, msg.Commands[1]);
-                msg.ClientStatus = 0;
+                //Receives Confimation Message
+                msg = receive();
+                System.out.println("[DirectoryServer"+ serverPID() +"] " + msg.Command);
+                msg.ResponseCODE = ResponseType.NONE;
+                
                 break;
         }
     }

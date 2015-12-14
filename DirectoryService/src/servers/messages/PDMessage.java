@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package servers.message;
+package servers.messages;
 
 import java.io.Serializable;
 
@@ -15,6 +15,7 @@ public class PDMessage implements Serializable {
     
     private static final long serialVersionUID = 27015L;
     
+    public ResponseType ResponseCODE;
     public int ClientStatus; // 0 - NotLogged :::  1 - Logged
     public String Command;
     public String[] Commands;  
@@ -23,6 +24,7 @@ public class PDMessage implements Serializable {
     
     public PDMessage()
     {
+        this.ResponseCODE = ResponseType.NONE;
         this.ClientStatus = 0;
         this.Command = null;
         this.Commands = null;

@@ -15,7 +15,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import servers.message.PDMessage;
+import servers.messages.PDMessage;
 
 /**
  *
