@@ -6,19 +6,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.SocketException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import servers.message.*;
 import servers.security.UserLogins;
-
-
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 
 /**
  *
@@ -65,8 +57,44 @@ public class DirectoryService {
         commandsMap.put("help", this::help);
         commandsMap.put("tcp", this::tcp);
         commandsMap.put("show", this::show);
+        commandsMap.put("download", () -> {
+            try {
+                this.download();
+            } catch (IOException ex) {
+            }
+        });
         logins = new UserLogins(LOGINS_FILE);
         multiCastClient = new MulticastClient();
+    }
+    
+    //TODO: Check if file exists
+    //TODO: Check if user is logged in
+    //TODO: Workaround for packet sending here
+    private void download() throws IOException
+    {
+        System.out.println("Username: " + messageToReceive.Username);
+        
+        if(messageToReceive.Commands.length != 2)
+        {
+            messageToSend.createMessage("Invalid Command!\nArguments must be <login filename>");
+            messageToSend.ClientStatus = 0;
+        }
+        else
+        { 
+            messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
+            messageToSend.ClientStatus = 3;
+            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+            socket.send(packet);
+            
+            FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
+            
+            messageToSend.createMessage("File transfer complete!");
+            messageToSend.ClientStatus = 0;
+            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+            socket.send(packet);
+            
+            
+        }
     }
     
     private void show()
@@ -96,7 +124,16 @@ public class DirectoryService {
             {
                 if(f.isFile())
                 {
-                    msg += ("\n" + f.getName());
+                    float Bs = f.length();
+                    float KBs = Bs / 1024; 
+                    float MBs = KBs / 1024;
+
+                    if(Bs < 1024)
+                        msg += ("\n- " + f.getName() + "\t" + Math.round(Bs * 100d) / 100d + " Bytes");
+                    else if (Bs < 1048576)
+                        msg += ("\n- " + f.getName() + "\t" + Math.round(KBs* 100d) / 100d + " Kilobytes");
+                    else 
+                        msg += ("\n- " + f.getName() + "\t" + Math.round(MBs* 100d) / 100d + " Megabytes");
                 }
             }
             msg+="\n";

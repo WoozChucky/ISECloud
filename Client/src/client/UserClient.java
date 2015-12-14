@@ -80,7 +80,7 @@ public class UserClient {
             
             System.out.println("[DirectoryServer"+ udpService.serverPID() +"] " + msg.Command);
             
-            udpService.handleMessage(msg, isUDPRunning, tcpConn);
+            udpService.handleMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath());
         }
         
         tcpService = new TCPService(tcpConn.Host, tcpConn.Port);

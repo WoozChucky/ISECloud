@@ -14,6 +14,7 @@ import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.DirectoryService;
+import servers.FTPService;
 import servers.message.PDMessage;
 import servers.message.MessageSerializer;
 
@@ -94,11 +95,10 @@ public class UDPService {
         return null;  
     }
     
-    public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn)
+    public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir) throws IOException
     {
         switch(msg.ClientStatus)
         {
-            
             case -1:
                 System.exit(-1);
                 break;
@@ -114,6 +114,10 @@ public class UDPService {
                 tcpConn.Host = "192.168.1.73";
                 tcpConn.Port = 7000;
             break;
+            case 3:
+                FTPService.ReceiveFileFromServer(dir, msg.Commands[1]);
+                msg.ClientStatus = 0;
+                break;
         }
     }
 }
