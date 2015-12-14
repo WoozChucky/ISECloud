@@ -62,6 +62,20 @@ public class Heartbeat implements Serializable {
     public String getMsg() {
         return _msg;
     }
+
+    /**
+     * @return the _isMaster
+     */
+    public boolean IsMaster() {
+        return _isMaster;
+    }
+
+    /**
+     * @param _isMaster the _isMaster to set
+     */
+    public void setMaster(boolean _isMaster) {
+        this._isMaster = _isMaster;
+    }
     
     
 }

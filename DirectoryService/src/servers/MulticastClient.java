@@ -33,8 +33,7 @@ public class MulticastClient extends Thread {
     
     public MulticastClient()
     {
-        Timer timer = new Timer();
-        timer.schedule(new CheckServers(), 0, 5000);
+        
     }
     
     public ArrayList<Server> getServers()
@@ -57,17 +56,20 @@ public class MulticastClient extends Thread {
                 
                 clientSocket.joinGroup(address);
                 
+                Timer timer = new Timer();
+                timer.schedule(new CheckServers(), 0, 5000);
+                
                 while (true) {
                     
                     DatagramPacket msgPacket = new DatagramPacket(buf, buf.length);
                     clientSocket.receive(msgPacket);
                     
                     Heartbeat hb = MessageSerializer.deserializeHeartbeat(buf);
-                    
+                                        
                     //Handle new Connection
                     handleHeartbeat(hb);
                     
-                    System.out.println(hb.getMsg());
+                    //System.out.println(hb.getMsg());
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -84,28 +86,20 @@ public class MulticastClient extends Thread {
     
     public void handleHeartbeat(Heartbeat hb)
     {
-        Server sv = new Server(hb.getHost(), hb.getPort());
+        Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster());
 
+
+        
         if(serverExists(sv))
             for (Server s : Servers)
             {
                 if(s.getPort() == sv.getPort())
                 {
-                    if(sv.getSeconds() - s.getSeconds() < 5)
-                        s.setSeconds(sv.getSeconds());
+                   s.setSeconds(sv.getSeconds());
                 }
             }
         else
-            if(Servers.isEmpty())
-            {
-                sv.setMaster(true);
-                Servers.add(sv);
-            }
-            else
-            {
-                sv.setMaster(false);
-                Servers.add(sv);
-            }
+            Servers.add(sv);
     }
     
     private final class CheckServers extends TimerTask {
@@ -116,20 +110,27 @@ public class MulticastClient extends Thread {
                 Calendar.getInstance().get(Calendar.MINUTE) * 60 +
                 Calendar.getInstance().get(Calendar.SECOND);
             
-            for (Server s : Servers) {
-                
-                if(s.getNullheartbeats() >= 3)
+            for(int i = 0; i < Servers.size(); i++)
+            {
+                if(Servers.get(i).getNullheartbeats() >= 3)
                 {
-                    System.out.println("Lost Connection to StorageServer("+ s.getHost() + ":" + s.getPort() + ") after 15 seconds. Removed..");
-                    Servers.remove(s);
-                    Server temp = Servers.get(0);
-                    System.out.println(temp.isMaster());
-                    temp.setMaster(true);
-                    break;
+                    System.out.println("Lost Connection to StorageServer("+ Servers.get(i).getHost() + ":" + Servers.get(i).getPort() + ") after 15 seconds. Removed..");
+                    if(Servers.get(i).isMaster() && Servers.size() > 1)
+                    {
+                        Servers.remove(i);
+                        Server temp = Servers.get(0);
+                        temp.setMaster(true);
+                        Servers.set(0, temp);
+                    }
+                    else
+                    {
+                        Servers.remove(i);
+                        continue;
+                    }
                 }
-                
-                if(currentSecs - s.getSeconds() > 5)
-                    s.setNullheartbeats(s.getNullheartbeats() + 1);
+
+                if(currentSecs - Servers.get(i).getSeconds() > 5)
+                    Servers.get(i).setNullheartbeats(Servers.get(i).getNullheartbeats() + 1);
             }
         }
         

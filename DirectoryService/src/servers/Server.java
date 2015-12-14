@@ -24,14 +24,6 @@ public class Server {
         this._port = port;
         this._master = master;
         this._nullheartbeats = 0;
-    }
-    
-    public Server(String host, int port)
-    {
-        this._host = host;
-        this._port = port;
-        this._master = true;
-        this._nullheartbeats = 0;
         this._seconds = 
                 Calendar.getInstance().get(Calendar.HOUR_OF_DAY ) * 60 * 60 + 
                 Calendar.getInstance().get(Calendar.MINUTE) * 60 +
