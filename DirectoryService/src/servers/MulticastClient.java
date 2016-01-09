@@ -62,6 +62,13 @@ public class MulticastClient extends Thread {
                     DatagramPacket msgPacket = new DatagramPacket(buf, buf.length);
                     clientSocket.receive(msgPacket);
                     
+                    if (buf == null) {
+                        
+                        System.out.println("Volta ao inicio ?");
+                        continue;
+                        
+                    }
+                    
                     Heartbeat hb = MessageSerializer.deserializeHeartbeat(buf);
                                         
                     //Handle new Connection
