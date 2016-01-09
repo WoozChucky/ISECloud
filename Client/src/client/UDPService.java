@@ -5,9 +5,6 @@
  */
 package client;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -17,10 +14,8 @@ import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.DirectoryService;
-import servers.FTPService;
 import servers.messages.MessageSerializer;
 import servers.messages.PDMessage;
-import servers.messages.ResponseType;
 
 /**
  *
@@ -99,66 +94,16 @@ public class UDPService {
         return null;  
     }
     
-    public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir, UDPService auxService) throws IOException
+    public void handleUDPResponseMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir, UDPService auxService) throws IOException
     {
         switch(msg.ResponseCODE)
         {
             case EXIT:
                 socket.close();
+                TCPService.removeUserFiles(dir);
                 System.exit(-1);
-                //running = false;
-                
-                break;
-                
-            case NONE:
-                
-                break;
-                
-            case DOWNLOAD:
-                //Receives the File
-                FTPService.ReceiveFileFromServer(dir, msg.Commands[1]);
-                //Receives Confimation Message
-                msg = receive();
-                System.out.println("[DirectoryServer"+ serverPID() +"] " + msg.Command);
-                msg.ResponseCODE = ResponseType.NONE;
-                
-                break;
-                
-            case CHECK_FILE_EXISTS:
-                
-                break;
-            case DOWNLOAD_READ:
-                //Receives the File
-                FTPService.ReceiveFileFromServer(dir, msg.Commands[0]);
-                
-                //Test for .txt
-                if(!"txt".equals(DirectoryService.getFileExtension(dir + "/" + msg.Commands[0])))
-                {
-                    System.out.println("[DirectoryServer"+ serverPID() +"] Sorry but this functionality in only available to .txt files.");
-                    return;
-                }
-                
-                BufferedReader in = new BufferedReader(new FileReader(dir + "/" + msg.Commands[0]));
-                
-                String output, line;
-                output = "\n\tFile Content\n-----";
-                while((line = in.readLine()) != null)
-                {
-                    output += "\n" + line;
-                }
-                output += "\n-----";
-                
-                System.out.println("[DirectoryServer"+ serverPID() +"] " + output);
-
-                break;
-                
-            case REMOVE_LOCAL:
-                if(new File(dir + "/" + msg.Commands[0]).exists())
-                {
-                    new File(dir + "/" + msg.Commands[0]).delete();
-                }
-                break;
-                
+            break;
+                 
             case CONNECT_TCP:
                 //Wait for Server Info, Then Connect                
                 msg = auxService.receive();
@@ -167,7 +112,7 @@ public class UDPService {
                 socket.close();
                 
                 running = false;
-                break;
+            break;
         }
     }
 }

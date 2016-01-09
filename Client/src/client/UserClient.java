@@ -38,6 +38,7 @@ public class UserClient {
         Scanner scanIn = new Scanner(System.in);
         ConnectionInfo tcpConn = new ConnectionInfo();
         File workingDir;
+        String username = "";
         PDMessage msg = new PDMessage();
 
         
@@ -60,6 +61,9 @@ public class UserClient {
         workingDir = new File(args[2]);
         if(!workingDir.exists())
             workingDir.mkdir();
+        
+        //TODO REMOVE COMENT HERE!!!!
+        //TCPService.removeUserFiles(workingDir.getAbsolutePath());
 
         udpService = new UDPService(args[0], Integer.parseInt(args[1]));
         
@@ -84,7 +88,10 @@ public class UserClient {
             
             System.out.println("[DirectoryServer"+ udpService.serverPID() +"] " + msg.Command);
             
-            udpService.handleMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath(), udpService);
+            udpService.handleUDPResponseMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath(), udpService);
+            
+            if(msg.ResponseCODE == ResponseType.LOGIN)
+                username = msg.Username;
             
             if(msg.ResponseCODE == ResponseType.CONNECT_TCP)
                 break;
@@ -96,20 +103,23 @@ public class UserClient {
         // While-Loop for TCP Service 
         while (isTCPRunning)
         {
+            msg = new PDMessage();
+            msg.Username = username;
+            
             System.out.print("["+ PID +"] Insert command: ");
             buf = scanIn.nextLine();
-
+            
             msg.createMessage(buf);
             
             scanIn.reset();
-            
+ 
             tcpService.send(msg);
-
+            
             msg = tcpService.receive();
             
             System.out.println("[StorageServer] " + msg.Command);
             
-            tcpService.handleMessage(msg);
+            tcpService.handleTCPResponseMessage(msg, workingDir.getAbsolutePath());
         }
         
    }

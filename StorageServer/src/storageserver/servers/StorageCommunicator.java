@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package servers;
+package storageserver.servers;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -13,6 +13,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import servers.MulticastServer;
 import servers.messages.Heartbeat;
 import servers.messages.MessageSerializer;
 
@@ -20,23 +21,20 @@ import servers.messages.MessageSerializer;
  *
  * @author nunol
  */
-public class MulticastServer extends Thread {
-
-    final static String INET_ADDR = "225.15.15.15";
-    final static int PORT = 7000;
-    final static boolean debug = false;
-    private boolean _isMaster;
-    private boolean _isAvailable;
-    private int svPort;
+public class StorageCommunicator extends Thread {
+    private final static String INET_ADDR = "225.15.15.15";
+    private final static int PORT = 7000;
+    private final boolean debug = true;
+    private final boolean _isMaster;
+    private final boolean _isAvailable;
+    private final int svPort;
     
-    public MulticastServer(int port, boolean master)
+    public StorageCommunicator(int port, boolean master)
     {
         svPort = port;
         _isMaster = master;
         _isAvailable = true;
     }
-    
-    
     
     @Override
     public void run()
@@ -57,7 +55,7 @@ public class MulticastServer extends Thread {
                     serverSocket.send(packet);
                     
                     if(debug)
-                        System.out.println("Pinging DirectoryService..");
+                        System.out.println("Pinging Secondary StorageServers..");
                     
                     Thread.sleep(5000);
                 }
@@ -72,29 +70,4 @@ public class MulticastServer extends Thread {
             Logger.getLogger(MulticastServer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
-    public void setAvailable(boolean available)
-    {
-        _isAvailable = available;
-    }
-    
-    public boolean isAvailable()
-    {
-        return _isAvailable;
-    }
-
-    /**
-     * @return the _isMaster
-     */
-    public boolean isIsMaster() {
-        return _isMaster;
-    }
-
-    /**
-     * @param _isMaster the _isMaster to set
-     */
-    public void setIsMaster(boolean _isMaster) {
-        this._isMaster = _isMaster;
-    }
-    
 }

@@ -62,23 +62,11 @@ public class MulticastClient extends Thread {
                     DatagramPacket msgPacket = new DatagramPacket(buf, buf.length);
                     clientSocket.receive(msgPacket);
                     
-                    if (buf == null) {
-                        
-                        System.out.println("Volta ao inicio ?");
-                        continue;
-                        
-                    }
-                    
                     Heartbeat hb = MessageSerializer.deserializeHeartbeat(buf);
                                         
                     //Handle new Connection
                     handleHeartbeat(hb);
                     
-                    for (Server s : Servers) {
-                        //System.err.println(s.getHost()+":"+s.getPort() + " - " + s.isAvailable() + "\n");
-                    }
-                    
-                    //System.out.println(hb.getMsg());
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -113,9 +101,7 @@ public class MulticastClient extends Thread {
     }
     
     public void handleHeartbeat(Heartbeat hb)
-    {
-        if(hb == null)
-            return;                   
+    {                 
         
         Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster(), hb.IsAvailable());
 
@@ -129,7 +115,10 @@ public class MulticastClient extends Thread {
                 }
             }
         else
+        {
             Servers.add(sv);
+            System.out.println("New StorageServer("+ sv.getHost() + ":" + sv.getPort() + ") added..");
+        }
     }
     
     private final class CheckServers extends TimerTask {

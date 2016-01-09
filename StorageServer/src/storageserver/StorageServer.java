@@ -15,9 +15,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,6 +26,7 @@ import servers.FTPService;
 import servers.MulticastServer;
 import servers.messages.PDMessage;
 import servers.messages.ResponseType;
+import storageserver.servers.StorageCommunicator;
 import storageserver.servers.StorageSearcher;
 
 /**
@@ -46,23 +47,55 @@ public class StorageServer {
     ObjectInputStream in = null; 
     ObjectOutputStream out = null;
     
+    StorageSearcher searcher;
+    StorageCommunicator communicator;
+    
+    ArrayList<Socket> secondaryServers;
+    Socket clientSocket;
+    
     PDMessage messageToReceive = null;
     PDMessage messageToSend;
 
     public StorageServer(int _port, File dir) {
         port = _port;
         
-        StorageSearcher s = new StorageSearcher();
+        workingDir = dir;
+        if(!workingDir.exists())
+            workingDir.mkdir();
         
-        //if(s.masterAvailable())
-        //{
-            //Secondary Server StartUp
-        //}
-        //else
-        //{
+        searcher = new StorageSearcher();
+        
+        secondaryServers = new ArrayList<>();
+        
+        messageToSend = new PDMessage();
+        commandsMap = new HashMap<>();
+        commandsMap.put("exit", this::exit);
+        commandsMap.put("get", this::help);
+        commandsMap.put("help", this::help);
+        commandsMap.put("show", this::show);
+        commandsMap.put("download", this::download);
+        commandsMap.put("remove", this::remove);
+        commandsMap.put("view", this::view);
+        commandsMap.put("upload", this::upload);
+        
+    }
+    
+    private void backgroundStartUp()
+    {
+        System.out.println("Searching for MasterServer");
+        if(searcher.masterAvailable())
+        {
+            System.out.println("Found MasterServer. Starting as Secondary Server.");
+        }
+        else
+        {
+            System.out.println("No MasterServer found, this is new master server.");
+            communicator = new StorageCommunicator(port, true);
+            communicator.start();
             
-        //}
+        }
         
+        /*
         if(available(port))
         {
             isMaster = true;
@@ -71,9 +104,6 @@ public class StorageServer {
             InetAddress addr = InetAddress.getByName("192.168.1.73");
             
             myServerSocket = new ServerSocket(port, MAX_USERS, addr);
-            workingDir = dir;
-            if(!workingDir.exists())
-                workingDir.mkdir();
             
             System.out.println("Master StorageServer created successfully at port " + port + ".");
             
@@ -92,9 +122,7 @@ public class StorageServer {
             InetAddress addr = InetAddress.getByName("192.168.1.73");
             
             myServerSocket = new ServerSocket(port, MAX_USERS, addr);
-            workingDir = dir;
-            if(!workingDir.exists())
-                workingDir.mkdir();
+            
             
             System.out.println("Secundary StorageServer created successfully at port " + port + ".");
             
@@ -104,16 +132,72 @@ public class StorageServer {
                 System.exit(-1); 
             }
         }
-        
-        messageToSend = new PDMessage();
-        commandsMap = new HashMap<>();
-        commandsMap.put("exit", this::exit);
-        commandsMap.put("get", this::help);
-        commandsMap.put("help", this::help);
-        commandsMap.put("show", this::show);
-        commandsMap.put("download", this::download);
-        commandsMap.put("remove", this::remove);
-        commandsMap.put("view", this::view);
+        */
+    }
+    
+    private void upload()
+    {
+        //Arguments Verification
+        if(messageToReceive.Commands.length != 2)
+        {
+            messageToSend.createMessage("Invalid Command!\nArguments must be <upload filename>.");
+            return;
+        }
+
+        try {
+            
+            //Giving upload FLAG to user
+            messageToSend.ResponseCODE = ResponseType.UPLOAD;
+            messageToSend.createMessage("Waiting for file...");
+            out.writeObject(messageToSend);
+            out.flush();
+            
+            if(new File(workingDir + "/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists())
+            {
+                //Tell user file already exists in server and stop
+                messageToSend = new PDMessage();
+                messageToSend.createMessage("File already exists in server!"); 
+                messageToSend.ResponseCODE = ResponseType.ALREADY_EXISTS;
+                return;
+            }
+            
+            //Giving filename back to user
+            messageToSend = new PDMessage();
+            messageToSend.createMessage(messageToReceive.Commands[1]);
+            out.writeObject(messageToSend);
+            out.flush();
+            
+            //Waiting if ok to open socket and receive file
+            PDMessage reply = (PDMessage)in.readObject();
+            if(reply.ResponseCODE == ResponseType.STOP_UPLOAD)
+            {
+                messageToSend = new PDMessage();
+                messageToSend.createMessage("Upload interrupted because the file was not found!");
+                return;
+            }
+            
+            
+            new Thread() {
+                public void run() {
+                    try {
+                        FTPService.ReceiveFileFromClient(clientSocket.getLocalAddress().getHostAddress(), workingDir.getAbsolutePath(), messageToReceive.Username, messageToReceive.Commands[1]);
+                    } catch (IOException ex) {
+                        Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }.start();
+            
+            
+            
+            messageToSend = new PDMessage();
+            messageToSend.createMessage("File successfully uploaded!");
+            
+            
+        } catch (IOException ex) {
+            Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
     }
     
@@ -125,12 +209,12 @@ public class StorageServer {
     
     private void help()
     {
-        messageToSend.createMessage("Avaible commands:\n\n"
+        messageToSend.createMessage("\nAvaible commands:\n\n"
                 + "exit                       -> Exits the App\n"
                 + "show                       -> Shows files available for current user\n"
                 + "download (filename)        -> Downloads the give filename from the server\n"
                 + "upload (filename)          -> Uploads the given filename to the server\n"
-                + "remove (filename)          -> Deletes the given filename from the server");
+                + "remove (filename)          -> Deletes the given filename from the server\n");
     }
     
     private void show()
@@ -142,7 +226,7 @@ public class StorageServer {
             return;
         }
 
-        File userDir = new File("Data/" + messageToReceive.Username + "/");
+        File userDir = new File(workingDir + "/" + messageToReceive.Username + "/");
 
         System.out.println(userDir.getAbsolutePath());
 
@@ -181,26 +265,39 @@ public class StorageServer {
             }
             
             //File Exists Verification
-            if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+            if(new File(workingDir + "/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
             {
                 messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
                 return;
             }
             
-            messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
+            //Send FLAG to enter download algorythm
+            messageToSend.createMessage("Checking file " + messageToReceive.Commands[1] + " locally...");
             messageToSend.ResponseCODE = ResponseType.DOWNLOAD;
             out.writeObject(messageToSend);
             out.flush();
+            System.out.println("send flag to check file and filename");
             
-            FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
+            //Check reps here
+            PDMessage reply = (PDMessage)in.readObject();
+            System.out.println("client replied " + reply.ResponseCODE.toString());
+            if(reply.ResponseCODE == ResponseType.ALREADY_EXISTS)
+            {
+                System.out.println("Got ALREADY_EXISTS");
+                messageToSend = new PDMessage();
+                messageToSend.createMessage("File already exists in local directory!");
+                messageToSend.ResponseCODE = ResponseType.ALREADY_EXISTS;
+                return;
+            }
             
-            messageToSend.createMessage("File transfer complete!");
-            messageToSend.ResponseCODE = ResponseType.FINISH_DOWNLOAD;
-            out.writeObject(messageToSend);
-            out.flush();
+            FTPService.SendToClient(workingDir.getAbsolutePath(), messageToReceive.Username, messageToReceive.Commands[1]);
             
+            messageToSend = new PDMessage();
+            messageToSend.createMessage("File transfer complete!");           
         } catch (IOException ex) {
             Logger.getLogger(DirectoryService.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     private void remove()
@@ -216,28 +313,20 @@ public class StorageServer {
         messageToSend.ResponseCODE = ResponseType.REMOVE_LOCAL;
 
         //File Exists Verification
-        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        if(new File(workingDir + "/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
         {
             messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
             return;
         }
 
         //Deletes The Requested File
-        new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).delete();
+        new File(workingDir + "/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).delete();
 
         messageToSend.createMessage(messageToReceive.Commands[1] + " deleted successfully from server."); 
     }
     
     private void view()
     {
-        //Login Verification
-        if(messageToReceive.ClientStatus != 1)
-        {
-            messageToSend.createMessage("You must be logged in to view files.");
-            messageToSend.ClientStatus = messageToReceive.ClientStatus;
-            return;
-        }   
-
         //Arguments Verification
         if(messageToReceive.Commands.length != 2)
         {
@@ -245,31 +334,43 @@ public class StorageServer {
             return;
         }
 
+        String filenameCheck = messageToReceive.Commands[1];
+        String username = messageToReceive.Username;
 
         //Checks if file exists in server
-        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        if(new File(workingDir + "/" + messageToReceive.Username + "/" + filenameCheck).exists() == false)
         {
            messageToSend.createMessage("The file you requested does not exist.");
            messageToSend.ResponseCODE = ResponseType.NONE;
         }
         else
         {
-            if(messageToReceive.ResponseCODE != ResponseType.OK)
-            {
-                //File Exists @ Client
-                //Do Nothing
+            try {
+                
+                messageToSend.createMessage("Checking " + messageToReceive.Commands[1]);
+                messageToSend.ResponseCODE = ResponseType.VIEW_CHECK_FILE;
+                out.writeObject(messageToSend);
+                out.flush();
+                
+                messageToSend = new PDMessage();
+             
+                PDMessage reply = (PDMessage)in.readObject();
+                if(reply.ResponseCODE == ResponseType.DOWNLOAD)
+                {
+                    messageToSend.createMessage("Downloading file...");
+                    FTPService.SendToClient(workingDir.getAbsolutePath(), username, filenameCheck);
+                    return;
+                }
+                 
+                messageToSend.createMessage("File was found. No download needed.");
+  
+            } catch (IOException ex) {
+                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (ClassNotFoundException ex) {
+                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
             }
-            else
-            {
-                //Check if Files Exists @ Client
-                if(true)
-                //File Does Not Exists @ Client, Send Command to DL
-                messageToSend.ResponseCODE = ResponseType.CHECK_FILE_EXISTS;
 
-            }
         }
-
-        messageToSend.createMessage("");
     }
     
     public void listen()
@@ -285,7 +386,7 @@ public class StorageServer {
         {
             try {
                 //accepts incoming TCP connection
-                Socket clientSocket = myServerSocket.accept();
+                clientSocket = myServerSocket.accept();
                 
                 if(clientSocket != null)
                 {
@@ -321,12 +422,17 @@ public class StorageServer {
                 while(true)
                 {
                     messageToReceive = (PDMessage) in.readObject();
-                    System.out.println("Client Says: " + messageToReceive.Command);
+                    System.out.println("Message received ->: '" + messageToReceive.Command + "'");
+                    
+                    checkUserDirectory();
+                    
+                    messageToSend = new PDMessage();
                     
                     handleMessage();
+
+                    //System.out.println("Server Sent :" + messageToSend.Command);
                     
                     out.writeObject(messageToSend);
-                    System.out.println("Server Sent :" + messageToSend.Command);
                     out.flush();
                 } 
 
@@ -359,6 +465,16 @@ public class StorageServer {
             messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
             messageToSend.ClientStatus = messageToReceive.ClientStatus;
             messageToSend.ResponseCODE = ResponseType.NONE;
+        }
+    }
+    
+    private void checkUserDirectory()
+    {
+        File userDir = new File(workingDir + "/" + messageToReceive.Username);
+        if(!userDir.exists())
+        {
+            System.out.println("Creating User folder for " + messageToReceive.Username + ".");
+            new File(workingDir + "/" + messageToReceive.Username).mkdir();
         }
     }
     
@@ -395,14 +511,15 @@ public class StorageServer {
     
     public static void main(String[] args) {
         
-        if(args.length != 1)
+        if(args.length != 2)
         {
-            System.out.println("Sintaxe: java StorageServer workingDirectory");
+            System.out.println("Sintaxe: java StorageServer workingDirectory port");
             return;
         }
         
-        StorageServer server = new StorageServer(9000, new File(args[0]));
-        server.listen();
+        StorageServer server = new StorageServer(Integer.parseInt(args[1]), new File(args[0]));
+        server.backgroundStartUp();
+        //server.listen();
     }
     
 }

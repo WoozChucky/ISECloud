@@ -13,6 +13,8 @@ import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.DirectoryService;
+import servers.messages.Heartbeat;
+import servers.messages.MessageSerializer;
 
 /**
  *
@@ -40,7 +42,9 @@ public class StorageSearcher {
                     DatagramPacket msgPacket = new DatagramPacket(buf, buf.length);
                     clientSocket.receive(msgPacket);
                     
-                    return buf != null;
+                    Heartbeat hb = MessageSerializer.deserializeHeartbeat(buf);
+                    
+                    return hb != null;
                 }
                 
             } catch (IOException ex) {

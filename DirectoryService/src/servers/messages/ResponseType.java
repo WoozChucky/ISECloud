@@ -5,13 +5,14 @@
  */
 package servers.messages;
 
+import java.io.Serializable;
+
 /**
  *
  * @author nunol
  */
-public enum ResponseType {
+public enum ResponseType implements Serializable {
     DOWNLOAD,
-    DOWNLOAD_READ,
     UPLOAD,
     OK,
     REMOVE, 
@@ -20,5 +21,9 @@ public enum ResponseType {
     EXIT,
     REMOVE_LOCAL,
     CHECK_FILE_EXISTS,
-    CONNECT_TCP
+    CONNECT_TCP,
+    LOGIN,
+    STOP_UPLOAD,
+    ALREADY_EXISTS,
+    VIEW_CHECK_FILE
 }

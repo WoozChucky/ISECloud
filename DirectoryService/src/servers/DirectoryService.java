@@ -1,6 +1,5 @@
 package servers;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -84,12 +83,15 @@ public class DirectoryService {
                 messageToSend.createMessage(logins.Usernames[i] + " logged in successfully!");
                 messageToSend.ClientStatus = 1;
                 messageToSend.Username = logins.Usernames[i];
+                messageToSend.ResponseCODE = ResponseType.LOGIN;
 
+                /*
                 File userFolder = new File("Data/" + logins.Usernames[i]);
                 if(!userFolder.exists() && !userFolder.isDirectory())
                 {
                     userFolder.mkdir();
                 }
+                */
                 return;                    
             }   
         }
