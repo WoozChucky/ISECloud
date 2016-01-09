@@ -10,11 +10,14 @@ package servers.messages;
  * @author nunol
  */
 public enum ResponseType {
-    //Downloads ResponseType
-    DOWNLOAD, //Downloads
-    UPLOAD, 
+    DOWNLOAD,
+    DOWNLOAD_READ,
+    UPLOAD,
+    OK,
     REMOVE, 
     NONE, 
     FINISH_DOWNLOAD, 
-    EXIT
+    EXIT,
+    REMOVE_LOCAL,
+    CHECK_FILE_EXISTS
 }

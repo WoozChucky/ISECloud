@@ -26,6 +26,7 @@ public class MulticastServer extends Thread {
     final static int PORT = 7000;
     final static boolean debug = true;
     private boolean _isMaster;
+    private boolean _isAvailable;
     private int svPort;
     
     public MulticastServer(int port, boolean master)
@@ -33,6 +34,8 @@ public class MulticastServer extends Thread {
         svPort = port;
         _isMaster = master;
     }
+    
+    
     
     @Override
     public void run()
@@ -44,7 +47,7 @@ public class MulticastServer extends Thread {
             {
                 while(true)
                 {
-                    Heartbeat hb = new Heartbeat(InetAddress.getLocalHost().getHostAddress(), svPort, _isMaster);
+                    Heartbeat hb = new Heartbeat(InetAddress.getLocalHost().getHostAddress(), svPort, _isMaster, _isAvailable);
                     
                     byte[] toSend = MessageSerializer.serializeHeartbeat(hb);
                     
@@ -67,6 +70,16 @@ public class MulticastServer extends Thread {
         } catch (UnknownHostException ex) {
             Logger.getLogger(MulticastServer.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    public void setAvailable(boolean available)
+    {
+        _isAvailable = available;
+    }
+    
+    public boolean isAvailable()
+    {
+        return _isAvailable;
     }
 
     /**

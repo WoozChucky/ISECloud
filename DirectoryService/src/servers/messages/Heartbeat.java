@@ -19,13 +19,15 @@ public class Heartbeat implements Serializable {
     private String _host;
     private String _msg;
     private boolean _isMaster;
+    private boolean _isAvailable;
     
-    public Heartbeat(String host, int port, boolean master)
+    public Heartbeat(String host, int port, boolean master, boolean available)
     {
         this._host = host;
         this._port = port;
         this._msg = "Hey " + host + ":" + port + " is alive.";
         this._isMaster = master;
+        this._isAvailable = available;
     }
 
     /**
@@ -75,6 +77,20 @@ public class Heartbeat implements Serializable {
      */
     public void setMaster(boolean _isMaster) {
         this._isMaster = _isMaster;
+    }
+
+    /**
+     * @return the _isAvailable
+     */
+    public boolean IsAvailable() {
+        return _isAvailable;
+    }
+
+    /**
+     * @param _isAvailable the _isAvailable to set
+     */
+    public void setAvailable(boolean _isAvailable) {
+        this._isAvailable = _isAvailable;
     }
     
     

@@ -1,22 +1,20 @@
 package client;
 
 
-import servers.messages.PDMessage;
-import servers.messages.ResponseType;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.lang.management.ManagementFactory;
-import java.net.InetAddress;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import servers.DirectoryService;
+import servers.messages.PDMessage;
+import servers.messages.ResponseType;
 
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Consegue obter Host e Porta do Storage
+ * Visualização de Conteúdo ?? Imagens = LOL (É Local e se nao existir, faz o download automaticamente)
+ * 
  */
 
 /**
@@ -25,7 +23,7 @@ import java.util.logging.Logger;
  */
 public class UserClient {
     
-    private static String PID = ManagementFactory.getRuntimeMXBean().getName();
+    private static final String PID = ManagementFactory.getRuntimeMXBean().getName();
     public static boolean isUDPRunning;
     public static boolean isTCPRunning;
 
@@ -53,6 +51,11 @@ public class UserClient {
             System.exit(-1);
         }
         
+        if(DirectoryService.available(Integer.parseInt(args[1])))
+        {
+            System.err.println("["+ PID +"] DirectoryService Unavailable. Exiting app...");
+            System.exit(-1);
+        }
         
         workingDir = new File(args[2]);
         if(!workingDir.exists())

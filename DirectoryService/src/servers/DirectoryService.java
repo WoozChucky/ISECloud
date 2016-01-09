@@ -1,17 +1,18 @@
 package servers;
 
-import servers.messages.ResponseType;
-import servers.messages.PDMessage;
-import servers.messages.MessageSerializer;
 import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import servers.messages.MessageSerializer;
+import servers.messages.PDMessage;
+import servers.messages.ResponseType;
 import servers.security.UserLogins;
 
 /**
@@ -24,19 +25,15 @@ public class DirectoryService {
     public static final String LOGINS_FILE = "logins.txt";
     
     private byte[] receiveData = new byte[MAX_SIZE];
-    
     private int port;
     private DatagramSocket socket;
-    private DatagramPacket packet; //para receber os pedidos e enviar as respostas
-    
+    private DatagramPacket packet;
     private PDMessage messageToReceive;
     private PDMessage messageToSend;
-    
     private UserLogins logins;
-    
     private HashMap<String, Runnable> commandsMap;
-    
     private MulticastClient multiCastClient;
+    private ArrayList<Server> availableServers;
     
 
     public DirectoryService(int port) throws SocketException
@@ -46,11 +43,12 @@ public class DirectoryService {
             System.exit(-1);
         }
         
-        this.socket = null;
-        packet = new DatagramPacket(receiveData, receiveData.length);
         socket = new DatagramSocket(port);
+        packet = new DatagramPacket(receiveData, receiveData.length);
+        
         messageToReceive = null;
         messageToSend = new PDMessage();
+        
         commandsMap = new HashMap<>();
         commandsMap.put("exit", this::exit);
         commandsMap.put("login", this::login);
@@ -59,33 +57,81 @@ public class DirectoryService {
         commandsMap.put("help", this::help);
         commandsMap.put("tcp", this::tcp);
         commandsMap.put("show", this::show);
-        commandsMap.put("download", () -> {
-            try {
-                this.download();
-            } catch (IOException ex) {
-            }
-        });
+        commandsMap.put("download", this::download);
+        commandsMap.put("remove", this::remove);
+        commandsMap.put("view", this::view);
+        
         logins = new UserLogins(LOGINS_FILE);
         multiCastClient = new MulticastClient();
+        
+        availableServers = new ArrayList<>();
     }
     
-    private void download() throws IOException
-    {        
+    
+    private void view()
+    {
         //Login Verification
         if(messageToReceive.ClientStatus != 1)
         {
-            messageToSend.createMessage("You must be logged in download files.");
+            messageToSend.createMessage("You must be logged in to view files.");
             messageToSend.ClientStatus = messageToReceive.ClientStatus;
             return;
-        }
-        
+        }   
+
         //Arguments Verification
         if(messageToReceive.Commands.length != 2)
         {
-            messageToSend.createMessage("Invalid Command!\nArguments must be <download filename>.");
+            messageToSend.createMessage("Invalid Command!\nArguments must be <view filename>.");
             return;
         }
-        
+
+
+        //Checks if file exists in server
+        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        {
+           messageToSend.createMessage("The file you requested does not exist.");
+           messageToSend.ResponseCODE = ResponseType.NONE;
+        }
+        else
+        {
+            if(messageToReceive.ResponseCODE != ResponseType.OK)
+            {
+                //File Exists @ Client
+                //Do Nothing
+            }
+            else
+            {
+                //Check if Files Exists @ Client
+                if(true)
+                //File Does Not Exists @ Client, Send Command to DL
+                messageToSend.ResponseCODE = ResponseType.CHECK_FILE_EXISTS;
+
+            }
+        }
+
+        messageToSend.createMessage("");
+    }
+    
+    private void remove()
+    {
+        //Login Verification
+        if(messageToReceive.ClientStatus != 1)
+        {
+            messageToSend.createMessage("You must be logged in to remove files.");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            return;
+        }
+
+        //Arguments Verification
+        if(messageToReceive.Commands.length != 2)
+        {
+            messageToSend.createMessage("Invalid Command!\nArguments must be <remove filename>.");
+            return;
+        }
+
+        //Send to the client the code to also delete file locally
+        messageToSend.ResponseCODE = ResponseType.REMOVE_LOCAL;
+
         //File Exists Verification
         if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
         {
@@ -93,17 +139,51 @@ public class DirectoryService {
             return;
         }
 
-        messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
-        messageToSend.ResponseCODE = ResponseType.DOWNLOAD;
-        packet.setData(MessageSerializer.serializePDMessage(messageToSend));
-        socket.send(packet);
+        //Deletes The Requested File
+        new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).delete();
 
-        FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
-
-        messageToSend.createMessage("File transfer complete!");
-        messageToSend.ResponseCODE = ResponseType.FINISH_DOWNLOAD;
-        packet.setData(MessageSerializer.serializePDMessage(messageToSend));
-        socket.send(packet);
+        messageToSend.createMessage(messageToReceive.Commands[1] + " deleted successfully from server.");       
+    }
+    
+    private void download() 
+    {        
+        try {
+            //Login Verification
+            if(messageToReceive.ClientStatus != 1)
+            {
+                messageToSend.createMessage("You must be logged in to download files.");
+                messageToSend.ClientStatus = messageToReceive.ClientStatus;
+                return;
+            }
+            
+            //Arguments Verification
+            if(messageToReceive.Commands.length != 2)
+            {
+                messageToSend.createMessage("Invalid Command!\nArguments must be <download filename>.");
+                return;
+            }
+            
+            //File Exists Verification
+            if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+            {
+                messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
+                return;
+            }
+            
+            messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
+            messageToSend.ResponseCODE = ResponseType.DOWNLOAD;
+            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+            socket.send(packet);
+            
+            FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
+            
+            messageToSend.createMessage("File transfer complete!");
+            messageToSend.ResponseCODE = ResponseType.FINISH_DOWNLOAD;
+            packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+            socket.send(packet);
+        } catch (IOException ex) {
+            Logger.getLogger(DirectoryService.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
     }
     
@@ -224,8 +304,10 @@ public class DirectoryService {
                 + "exit                       -> Exits the App\n"
                 + "login (username, password) -> Tries to login the current user\n"
                 + "logout                     -> Logs out the current logged in user\n"
-                + "tcp                        -> Connects to Storage Server (DEBUG)\n"
-                + "get (filename)             -> Tries to download the file\n");
+                + "show                       -> Shows file available for current user\n"
+                + "download (filename)        -> Downloads the give filename from the server\n"
+                + "upload (filename)          -> Uploads the given filename to the server"
+                + "remove (filename)          -> ");
     }
     
     private PDMessage waitDatagram() throws IOException
@@ -240,8 +322,6 @@ public class DirectoryService {
         socket.receive(packet);
         
         byte[] myObject = new byte[packet.getLength()];
-            
-        //System.arraycopy(receiveData, 0, myObject, 0, packet.getLength());
         
         for (int i = 0; i < packet.getLength(); i++) {
             myObject[i] = receiveData[i];
@@ -250,9 +330,6 @@ public class DirectoryService {
         request = MessageSerializer.deserializePDMessage(myObject);
             
         return request;
-        
-        //System.out.println("Recebido \"" + request.Command + "\" de " + 
-                //packet.getAddress().getHostAddress() + ":" + packet.getPort());
     }
     
     public void processRequests() throws IOException
@@ -267,24 +344,18 @@ public class DirectoryService {
         System.out.println("Server has started... waiting for connections.");
         
         while(true){
+            
             messageToReceive = null;
             messageToReceive = waitDatagram();
             
             System.out.println("Message received -> '" + messageToReceive.Command + "'");
             
-            if(messageToReceive == null){
-                continue; //send error message
-            }
-            
             handleMessage(messageToReceive);
-            
-            //System.out.println("PDMessage to send -> " + messageToSend.Command);
 
             if(messageToSend.ResponseCODE != ResponseType.FINISH_DOWNLOAD)
             {
                 packet.setData(MessageSerializer.serializePDMessage(messageToSend));
-            
-                //O ip e porto de destino jÃ¡ se encontram definidos em packet
+
                 socket.send(packet);
             }
             messageToSend.ResponseCODE = ResponseType.NONE;
@@ -319,22 +390,26 @@ public class DirectoryService {
     private void handleMessage(PDMessage msg) {   
         if (commandsMap.containsKey(msg.Commands[0]))
         {
+            availableServers = multiCastClient.getServers();
+            
+            if(availableServers.size() > 1)
+            {
+                messageToSend.createMessage("No Available Servers To Answer Your Request.");
+                messageToSend.ClientStatus = messageToReceive.ClientStatus;
+                return;
+            }
+            
             commandsMap.get(msg.Commands[0]).run();
         }
         else
         {
             messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
             messageToSend.ClientStatus = messageToReceive.ClientStatus;
-            messageToSend.ResponseCODE = messageToReceive.ResponseCODE;
+            messageToSend.ResponseCODE = ResponseType.NONE;
         }
     }
     
-    /**
-    * Checks to see if a specific port is available.
-    *
-    * @param port the port to check for availability
-    */
-    private static boolean available(int port) {
+    public static boolean available(int port) {
         if (port < 5000 || port > 30000) {
             throw new IllegalArgumentException("Invalid start port: " + port);
         }
@@ -357,12 +432,19 @@ public class DirectoryService {
                 try {
                     ss.close();
                 } catch (IOException e) {
-                    /* should not be thrown */
                 }
             }
         }
 
         return false;
+    }
+    
+    public static String getFileExtension(String path)
+    {
+        int i = path.lastIndexOf('.');
+        if(i >= 0)
+            return path.substring(i+1);
+        return null;
     }
     
 }

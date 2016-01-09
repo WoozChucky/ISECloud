@@ -5,6 +5,9 @@
  */
 package client;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -15,8 +18,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.DirectoryService;
 import servers.FTPService;
-import servers.messages.PDMessage;
 import servers.messages.MessageSerializer;
+import servers.messages.PDMessage;
 import servers.messages.ResponseType;
 
 /**
@@ -109,7 +112,7 @@ public class UDPService {
                 break;
                 
             case NONE:
-                running = true;
+                
                 break;
                 
             case DOWNLOAD:
@@ -120,6 +123,41 @@ public class UDPService {
                 System.out.println("[DirectoryServer"+ serverPID() +"] " + msg.Command);
                 msg.ResponseCODE = ResponseType.NONE;
                 
+                break;
+                
+            case CHECK_FILE_EXISTS:
+                
+                break;
+            case DOWNLOAD_READ:
+                //Receives the File
+                FTPService.ReceiveFileFromServer(dir, msg.Commands[0]);
+                
+                //Test for .txt
+                if(!"txt".equals(DirectoryService.getFileExtension(dir + "/" + msg.Commands[0])))
+                {
+                    System.out.println("[DirectoryServer"+ serverPID() +"] Sorry but this functionality in only available to .txt files.");
+                    return;
+                }
+                
+                BufferedReader in = new BufferedReader(new FileReader(dir + "/" + msg.Commands[0]));
+                
+                String output, line;
+                output = "\n\tFile Content\n-----";
+                while((line = in.readLine()) != null)
+                {
+                    output += "\n" + line;
+                }
+                output += "\n-----";
+                
+                System.out.println("[DirectoryServer"+ serverPID() +"] " + output);
+
+                break;
+                
+            case REMOVE_LOCAL:
+                if(new File(dir + "/" + msg.Commands[0]).exists())
+                {
+                    new File(dir + "/" + msg.Commands[0]).delete();
+                }
                 break;
         }
     }

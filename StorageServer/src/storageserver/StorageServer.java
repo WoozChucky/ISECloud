@@ -23,6 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import servers.MulticastServer;
 import servers.messages.PDMessage;
+import storageserver.servers.StorageSearcher;
 
 /**
  *ASsimasososososos
@@ -31,14 +32,29 @@ import servers.messages.PDMessage;
 public class StorageServer {
 
     public static final int MAX_USERS = 250;
-    private int port;
+    int port;
     ServerSocket myServerSocket;
+    MulticastServer multiCastServer;
     boolean serverOn = true;
     boolean isMaster = false;
     File workingDir;
 
     public StorageServer(int _port, File dir) {
         port = _port;
+        
+        StorageSearcher s = new StorageSearcher();
+        
+        if(s.masterAvailable())
+        {
+            //Secondary Server StartUp
+        }
+        else
+        {
+            
+        }
+        
+        //System.exit(-1);
+        
         if(available(port))
         {
             isMaster = true;
@@ -88,7 +104,10 @@ public class StorageServer {
     public void listen()
     {
         System.out.println("Heartbeat System has started");
-        new MulticastServer(port, isMaster).start();
+        
+        multiCastServer = new MulticastServer(port, isMaster);
+        multiCastServer.start();
+        
         System.out.println("Listening for connections...");
         
         while(serverOn)
@@ -96,9 +115,21 @@ public class StorageServer {
             try {
                 //accepts incoming TCP connection
                 Socket clientSocket = myServerSocket.accept();
+                
+                if(clientSocket != null)
+                {
+                    multiCastServer.setAvailable(false);
+                    System.err.println("Got a client. Not accepting anymore clients.");
+                }
+                
+                /*
+                TODO: Maybe try and dont start thread to handle client ?
+                */
 
                 //starts new service thread to handle client requests in background
-                new ClientHandleThread(clientSocket).start();
+                //new ClientHandleThread(clientSocket).start();
+                
+                
             }
             catch (IOException e)
             {
@@ -217,12 +248,7 @@ public class StorageServer {
         }
         
     }
-    
-    /**
-    * Checks to see if a specific port is available.
-    *
-    * @param port the port to check for availability
-    */
+
     private static boolean available(int port) {
         if (port < 5000 || port > 30000) {
             throw new IllegalArgumentException("Invalid start port: " + port);
@@ -262,7 +288,7 @@ public class StorageServer {
             return;
         }
         
-        StorageServer server = new StorageServer(7000, new File(args[0]));
+        StorageServer server = new StorageServer(9090, new File(args[0]));
         server.listen();
     }
     
