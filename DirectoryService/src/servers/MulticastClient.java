@@ -50,7 +50,6 @@ public class MulticastClient extends Thread {
             
             byte[] buf = new byte[DirectoryService.MAX_SIZE];
             
-            
             try (MulticastSocket clientSocket = new MulticastSocket(PORT)){
                 
                 clientSocket.joinGroup(address);
@@ -96,6 +95,11 @@ public class MulticastClient extends Thread {
     
     public void handleHeartbeat(Heartbeat hb)
     {
+        if(hb == null)
+        {
+            System.err.println("Heartbeat veio null. Ignoring..");
+            return;
+        }
         Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster(), hb.IsAvailable());
 
 
