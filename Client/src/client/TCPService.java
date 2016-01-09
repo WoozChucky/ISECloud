@@ -5,10 +5,7 @@
  */
 package client;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -32,7 +29,7 @@ public class TCPService {
     {
         try {
             clientSocket = new Socket(InetAddress.getByName(host), port);
-            clientSocket.setSoTimeout(5000);
+            //clientSocket.setSoTimeout(5000);
             oos = new ObjectOutputStream(clientSocket.getOutputStream());
             in = new ObjectInputStream(clientSocket.getInputStream());
             

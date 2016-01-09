@@ -84,16 +84,19 @@ public class UserClient {
             
             System.out.println("[DirectoryServer"+ udpService.serverPID() +"] " + msg.Command);
             
-            udpService.handleMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath());
+            udpService.handleMessage(msg, isUDPRunning, tcpConn, workingDir.getAbsolutePath(), udpService);
+            
+            if(msg.ResponseCODE == ResponseType.CONNECT_TCP)
+                break;
         }
         
-        //tcpService = new TCPService(tcpConn.Host, tcpConn.Port);
-        //isTCPRunning = true;
+        tcpService = new TCPService(tcpConn.Host, tcpConn.Port);
+        isTCPRunning = true;
         
         //ObjectInputStream in = new ObjectInputStream(tcpService.sock().getInputStream());
         //ObjectOutputStream oos = new ObjectOutputStream(tcpService.sock().getOutputStream());
         
-        /* While-Loop for TCP Service 
+        // While-Loop for TCP Service 
         while (isTCPRunning)
         {
             System.out.print("["+ PID +"] Insert command: ");
@@ -109,11 +112,12 @@ public class UserClient {
             msg = tcpService.receive();
             System.out.println("Received -> " + msg.Command);
             
-            System.out.println("[StorageServer"+ tcpService.serverPID() +"] " + msg.Command);
+            //System.out.println("[StorageServer"+ tcpService.serverPID() +"] " + msg.Command);
+            System.out.println("[StorageServer] " + msg.Command);
             
             tcpService.handleMessage(msg);
         }
-        */
+        
    }
     
 }

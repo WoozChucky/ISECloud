@@ -99,7 +99,7 @@ public class UDPService {
         return null;  
     }
     
-    public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir) throws IOException
+    public void handleMessage(PDMessage msg, boolean running, ConnectionInfo tcpConn, String dir, UDPService auxService) throws IOException
     {
         switch(msg.ResponseCODE)
         {
@@ -107,8 +107,7 @@ public class UDPService {
                 socket.close();
                 System.exit(-1);
                 //running = false;
-                //tcpConn.Host = "192.168.1.73";
-                //tcpConn.Port = 7000;
+                
                 break;
                 
             case NONE:
@@ -158,6 +157,16 @@ public class UDPService {
                 {
                     new File(dir + "/" + msg.Commands[0]).delete();
                 }
+                break;
+                
+            case CONNECT_TCP:
+                //Wait for Server Info, Then Connect                
+                msg = auxService.receive();
+                tcpConn.Host = msg.Commands[0];
+                tcpConn.Port = Integer.parseInt(msg.Commands[1]);
+                socket.close();
+                
+                running = false;
                 break;
         }
     }
