@@ -93,9 +93,6 @@ public class UserClient {
         tcpService = new TCPService(tcpConn.Host, tcpConn.Port);
         isTCPRunning = true;
         
-        //ObjectInputStream in = new ObjectInputStream(tcpService.sock().getInputStream());
-        //ObjectOutputStream oos = new ObjectOutputStream(tcpService.sock().getOutputStream());
-        
         // While-Loop for TCP Service 
         while (isTCPRunning)
         {
@@ -107,12 +104,9 @@ public class UserClient {
             scanIn.reset();
             
             tcpService.send(msg);
-            System.out.println("Sent -> " + msg.Command);
 
             msg = tcpService.receive();
-            System.out.println("Received -> " + msg.Command);
             
-            //System.out.println("[StorageServer"+ tcpService.serverPID() +"] " + msg.Command);
             System.out.println("[StorageServer] " + msg.Command);
             
             tcpService.handleMessage(msg);

@@ -81,17 +81,6 @@ public class TCPService {
         
     }
     
-//    public void shutdown()
-//    {
-//        try {
-//            oos.close();
-//            in.close();
-//            clientSocket.close();
-//        } catch (IOException ex) {
-//            Logger.getLogger(TCPService.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//    }
-    
     public String serverPID()
     {
         return clientSocket.getRemoteSocketAddress().toString();

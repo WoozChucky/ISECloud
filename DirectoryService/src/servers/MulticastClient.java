@@ -74,6 +74,10 @@ public class MulticastClient extends Thread {
                     //Handle new Connection
                     handleHeartbeat(hb);
                     
+                    for (Server s : Servers) {
+                        //System.err.println(s.getHost()+":"+s.getPort() + " - " + s.isAvailable() + "\n");
+                    }
+                    
                     //System.out.println(hb.getMsg());
                 }
             } catch (IOException ex) {
@@ -89,9 +93,17 @@ public class MulticastClient extends Thread {
         return Servers.stream().anyMatch((sv) -> (sv.getPort() == s.getPort()));
     }
     
+    public int serversAvailable()
+    {
+        return (int)Servers.stream().filter((sv) -> (sv.isAvailable() == true)).count();
+    }
+    
     public String getFreeStorageServer()
     {
+        System.err.println("Servers Available -> " + Servers.stream().filter((sv) -> (sv.isAvailable() == true)).count());
+
         for (Server sv : Servers) {
+            System.err.println(sv.getHost()+":"+sv.getPort() + " - " + sv.isAvailable() + "\n");
             if(sv.isAvailable())
             {
                 return sv.getHost() + " " + sv.getPort();
@@ -103,18 +115,16 @@ public class MulticastClient extends Thread {
     public void handleHeartbeat(Heartbeat hb)
     {
         if(hb == null)
-        {
-            System.err.println("Heartbeat veio null. Ignoring..");
-            return;
-        }
+            return;                   
+        
         Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster(), hb.IsAvailable());
-
 
         if(serverExists(sv))
             for (Server s : Servers)
             {
                 if(s.getPort() == sv.getPort())
                 {
+                   s.setAvailable(hb.IsAvailable());
                    s.setSeconds(sv.getSeconds());
                 }
             }

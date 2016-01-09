@@ -47,9 +47,7 @@ public class MulticastServer extends Thread {
             try(DatagramSocket serverSocket = new DatagramSocket())
             {
                 while(true)
-                {
-                    System.err.println("STORAGE - " + _isAvailable);
-                    
+                {                    
                     Heartbeat hb = new Heartbeat(InetAddress.getLocalHost().getHostAddress(), svPort, _isMaster, _isAvailable);
                     
                     byte[] toSend = MessageSerializer.serializeHeartbeat(hb);

@@ -21,8 +21,11 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import servers.DirectoryService;
+import servers.FTPService;
 import servers.MulticastServer;
 import servers.messages.PDMessage;
+import servers.messages.ResponseType;
 import storageserver.servers.StorageSearcher;
 
 /**
@@ -31,13 +34,20 @@ import storageserver.servers.StorageSearcher;
  */
 public class StorageServer {
 
-    public static final int MAX_USERS = 250;
+    public static final int MAX_USERS = 1;
     int port;
     ServerSocket myServerSocket;
     MulticastServer multiCastServer;
     boolean serverOn = true;
     boolean isMaster = false;
     File workingDir;
+    HashMap<String, Runnable> commandsMap;
+    
+    ObjectInputStream in = null; 
+    ObjectOutputStream out = null;
+    
+    PDMessage messageToReceive = null;
+    PDMessage messageToSend;
 
     public StorageServer(int _port, File dir) {
         port = _port;
@@ -52,8 +62,6 @@ public class StorageServer {
         //{
             
         //}
-        
-        //System.exit(-1);
         
         if(available(port))
         {
@@ -97,8 +105,171 @@ public class StorageServer {
             }
         }
         
+        messageToSend = new PDMessage();
+        commandsMap = new HashMap<>();
+        commandsMap.put("exit", this::exit);
+        commandsMap.put("get", this::help);
+        commandsMap.put("help", this::help);
+        commandsMap.put("show", this::show);
+        commandsMap.put("download", this::download);
+        commandsMap.put("remove", this::remove);
+        commandsMap.put("view", this::view);
         
-        
+    }
+    
+    private void exit()
+    {
+        messageToSend.ResponseCODE = ResponseType.EXIT;
+        messageToSend.createMessage("Exiting...");
+    }
+    
+    private void help()
+    {
+        messageToSend.createMessage("Avaible commands:\n\n"
+                + "exit                       -> Exits the App\n"
+                + "show                       -> Shows files available for current user\n"
+                + "download (filename)        -> Downloads the give filename from the server\n"
+                + "upload (filename)          -> Uploads the given filename to the server\n"
+                + "remove (filename)          -> Deletes the given filename from the server");
+    }
+    
+    private void show()
+    {
+        if(messageToReceive.Commands.length != 1)
+        {
+            messageToSend.createMessage("Invalid command!\n Arguments are only 'show'");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            return;
+        }
+
+        File userDir = new File("Data/" + messageToReceive.Username + "/");
+
+        System.out.println(userDir.getAbsolutePath());
+
+        File[] lista = userDir.listFiles();
+
+        String msg = new String();
+        msg += "\n\tFiles Available\n";
+        for(File f : lista)
+        {
+            if(f.isFile())
+            {
+                float Bs = f.length();
+                float KBs = Bs / 1024; 
+                float MBs = KBs / 1024;
+
+                if(Bs < 1024)
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(Bs * 100d) / 100d + " Bytes");
+                else if (Bs < 1048576)
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(KBs* 100d) / 100d + " Kilobytes");
+                else 
+                    msg += ("\n- " + f.getName() + "\t" + Math.round(MBs* 100d) / 100d + " Megabytes");
+            }
+        }
+        msg+="\n";
+
+        messageToSend.createMessage(msg);
+    }
+    private void download()
+    {
+        try {           
+            //Arguments Verification
+            if(messageToReceive.Commands.length != 2)
+            {
+                messageToSend.createMessage("Invalid Command!\nArguments must be <download filename>.");
+                return;
+            }
+            
+            //File Exists Verification
+            if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+            {
+                messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
+                return;
+            }
+            
+            messageToSend.createMessage("Downloading " + messageToReceive.Commands[1]);
+            messageToSend.ResponseCODE = ResponseType.DOWNLOAD;
+            out.writeObject(messageToSend);
+            out.flush();
+            
+            FTPService.SendToClient(messageToReceive.Username, messageToReceive.Commands[1]);
+            
+            messageToSend.createMessage("File transfer complete!");
+            messageToSend.ResponseCODE = ResponseType.FINISH_DOWNLOAD;
+            out.writeObject(messageToSend);
+            out.flush();
+            
+        } catch (IOException ex) {
+            Logger.getLogger(DirectoryService.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    private void remove()
+    {
+        //Arguments Verification
+        if(messageToReceive.Commands.length != 2)
+        {
+            messageToSend.createMessage("Invalid Command!\nArguments must be <remove filename>.");
+            return;
+        }
+
+        //Send to the client the code to also delete file locally
+        messageToSend.ResponseCODE = ResponseType.REMOVE_LOCAL;
+
+        //File Exists Verification
+        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        {
+            messageToSend.createMessage("The file you requested does not exist. Please use <show> command.");
+            return;
+        }
+
+        //Deletes The Requested File
+        new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).delete();
+
+        messageToSend.createMessage(messageToReceive.Commands[1] + " deleted successfully from server."); 
+    }
+    
+    private void view()
+    {
+        //Login Verification
+        if(messageToReceive.ClientStatus != 1)
+        {
+            messageToSend.createMessage("You must be logged in to view files.");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            return;
+        }   
+
+        //Arguments Verification
+        if(messageToReceive.Commands.length != 2)
+        {
+            messageToSend.createMessage("Invalid Command!\nArguments must be <view filename>.");
+            return;
+        }
+
+
+        //Checks if file exists in server
+        if(new File("Data/" + messageToReceive.Username + "/" + messageToReceive.Commands[1]).exists() == false)
+        {
+           messageToSend.createMessage("The file you requested does not exist.");
+           messageToSend.ResponseCODE = ResponseType.NONE;
+        }
+        else
+        {
+            if(messageToReceive.ResponseCODE != ResponseType.OK)
+            {
+                //File Exists @ Client
+                //Do Nothing
+            }
+            else
+            {
+                //Check if Files Exists @ Client
+                if(true)
+                //File Does Not Exists @ Client, Send Command to DL
+                messageToSend.ResponseCODE = ResponseType.CHECK_FILE_EXISTS;
+
+            }
+        }
+
+        messageToSend.createMessage("");
     }
     
     public void listen()
@@ -122,51 +293,37 @@ public class StorageServer {
                     System.err.println("Got a client. Not accepting anymore clients.");
                 }
                 
-                handleClient(clientSocket);
-
-
-                //starts new service thread to handle client requests in background
-                //new ClientHandleThread(clientSocket).start();
-                
+                handleClient(clientSocket, multiCastServer);
                 
             }
-            catch (IOException e)
+            catch(IOException e)
             {
-                System.out.println("Exception encountered on accept. Ignoring. Stack Trace :"); 
-                e.printStackTrace();
             }
         }
         
         try {
             myServerSocket.close();
         } catch (IOException ex) {
-            Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+
         }
     }
     
-    private void handleClient(Socket clientSock)
+    private void handleClient(Socket clientSock, MulticastServer mainServer)
     {
-        ObjectInputStream in = null; 
-        ObjectOutputStream out = null;
-        
-        PDMessage messageToReceive = null;
-        PDMessage messageToSend = new PDMessage();
-        
         System.out.println("Accepted connection from "
                         +  clientSock.getInetAddress().getHostAddress()+ ":" + clientSock.getPort());
         
         try
             {        
-                
                 in = new ObjectInputStream(clientSock.getInputStream());
                 out = new ObjectOutputStream(clientSock.getOutputStream()); 
                 
                 while(true)
                 {
                     messageToReceive = (PDMessage) in.readObject();
-                    System.out.println("Client Says :" + messageToReceive.Command);
-
-                    messageToSend.createMessage("Lole, estamos a falar huehue");
+                    System.out.println("Client Says: " + messageToReceive.Command);
+                    
+                    handleMessage();
                     
                     out.writeObject(messageToSend);
                     System.out.println("Server Sent :" + messageToSend.Command);
@@ -174,8 +331,6 @@ public class StorageServer {
                 } 
 
             } catch (IOException | ClassNotFoundException ex) {
-                ex.printStackTrace();
-                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
             }
             finally
             {
@@ -184,124 +339,29 @@ public class StorageServer {
                     in.close(); 
                     out.close(); 
                     clientSock.close(); 
-                    System.out.println("...Stopped"); 
+                    System.out.println("Connection dropped by user. Server available again to answer users."); 
+                    mainServer.setAvailable(true);
                 } 
                 catch(IOException e) 
                 { 
-                    e.printStackTrace(); 
                 }
-            }
-        
-        
-        
-        
-        
+            }  
     }
     
-    class ClientHandleThread extends Thread {
-        
-        private Socket myClientSocket;
-        private HashMap<String, Runnable> commandsMap;
-        private PDMessage messageToSend, messageToReceive;
-        private boolean connected = true;
-        
-        public ClientHandleThread() {
-            super();
-        }
-
-        public ClientHandleThread(Socket myClientSocket) {
-            this.myClientSocket = myClientSocket;
-            this.messageToSend = new PDMessage();
-            this.messageToReceive = new PDMessage();
-            this.commandsMap = new HashMap<>();
-            this.commandsMap.put("stop", this::help);
-            this.commandsMap.put("ls", this::help);
-            this.commandsMap.put("get", this::help);
-            this.commandsMap.put("exit", this::help);
-        }
-        
-        private void help()
+    private void handleMessage()
+    {
+        if (commandsMap.containsKey(messageToReceive.Commands[0]))
         {
-            messageToSend.createMessage("Avaible commands:\n\n"
-                + "exit                       -> Exits the App\n"
-                + "stop                       -> Stops the server\n"
-                + "dir                        -> Gets personal file's info in current server\n");
-            messageToSend.ClientStatus = 0;
+            commandsMap.get(messageToReceive.Commands[0]).run();
         }
-        
-        private void handleMessage()
+        else
         {
-            if (commandsMap.containsKey(messageToReceive.Commands[0]))
-            {
-                commandsMap.get(messageToReceive.Commands[0]).run();
-            }
-            else
-            {
-                messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
-                messageToSend.ClientStatus = messageToReceive.ClientStatus;
-            }
+            messageToSend.createMessage("Invalid command! Maybe try 'help' ?");
+            messageToSend.ClientStatus = messageToReceive.ClientStatus;
+            messageToSend.ResponseCODE = ResponseType.NONE;
         }
-        
-        @Override
-        public void run()
-        {
-            ObjectInputStream in = null; 
-            ObjectOutputStream out = null;
-            
-            System.out.println("Accepted connection from "
-                        +  myClientSocket.getInetAddress().getHostAddress()+ ":" + myClientSocket.getPort());
-            
-            try
-            {        
-                
-                in = new ObjectInputStream(myClientSocket.getInputStream());
-                out = new ObjectOutputStream(myClientSocket.getOutputStream()); 
-                
-                while(connected)
-                {
-                    messageToReceive = (PDMessage) in.readObject();
-                    System.out.println("Client Says :" + messageToReceive.Command);
-
-//                    if(!serverOn) 
-//                    { 
-//                        // Special command. Quit this thread 
-//                        System.out.print("Server has already stopped"); 
-//                        PDMessage bye = new PDMessage();
-//                        bye.createMessage("Server has stopped");
-//
-//                        out.writeObject(bye); 
-//                        out.flush(); 
-//                    }
-
-                    //handleMessage();
-
-                    out.writeObject(messageToSend);
-                    System.out.println("Server Sent :" + messageToSend.Command);
-                    out.flush();
-                } 
-
-            } catch (IOException | ClassNotFoundException ex) {
-                ex.printStackTrace();
-                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            finally
-            {
-                try
-                {                    
-                    in.close(); 
-                    out.close(); 
-                    myClientSocket.close(); 
-                    System.out.println("...Stopped"); 
-                } 
-                catch(IOException e) 
-                { 
-                    e.printStackTrace(); 
-                }
-            }
-        }
-        
     }
-
+    
     private static boolean available(int port) {
         if (port < 5000 || port > 30000) {
             throw new IllegalArgumentException("Invalid start port: " + port);

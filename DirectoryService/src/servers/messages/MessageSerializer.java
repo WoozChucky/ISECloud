@@ -89,16 +89,23 @@ public final class MessageSerializer {
     {
         try {
             ObjectInputStream iStream = new ObjectInputStream(new ByteArrayInputStream(data));
-            try {
-                Heartbeat msg = (Heartbeat) iStream.readObject();
-                iStream.close();
             
-                return msg;
-            }
-            catch (IOException | ClassNotFoundException e)
+            if(iStream != null)
             {
-                e.printStackTrace();
+                try {
+
+                    Heartbeat msg = (Heartbeat) iStream.readObject();
+                    iStream.close();
+
+                    return msg;
+                }
+                catch (IOException | ClassNotFoundException e)
+                {
+                    e.printStackTrace();
+                }
             }
+            
+            
             
         } 
         catch (IOException e)
