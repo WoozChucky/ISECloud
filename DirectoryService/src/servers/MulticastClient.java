@@ -83,12 +83,22 @@ public class MulticastClient extends Thread {
         return Servers.stream().anyMatch((sv) -> (sv.getPort() == s.getPort()));
     }
     
+    public String getFreeStorageServer()
+    {
+        for (Server sv : Servers) {
+            if(sv.isAvailable())
+            {
+                return sv.getHost() + " " + sv.getPort();
+            }
+        }
+        return null;
+    }
+    
     public void handleHeartbeat(Heartbeat hb)
     {
-        Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster());
+        Server sv = new Server(hb.getHost(), hb.getPort(), hb.IsMaster(), hb.IsAvailable());
 
 
-        
         if(serverExists(sv))
             for (Server s : Servers)
             {

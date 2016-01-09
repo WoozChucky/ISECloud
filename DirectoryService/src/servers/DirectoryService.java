@@ -289,8 +289,29 @@ public class DirectoryService {
     {
         if(messageToReceive.ClientStatus == 0) //TODO : Colocar 1 para login obrigatorio
         {
-            messageToSend.ClientStatus = 2;
-            messageToSend.createMessage("Connecting to Storage Server.. Bye");
+            //Check if there are any servers available for user
+            if(multiCastClient.getFreeStorageServer() != null)
+            {
+                try {
+                    messageToSend.ResponseCODE = ResponseType.CONNECT_TCP;
+                    messageToSend.createMessage("Connecting to Storage Server.. Bye");
+                    
+                    packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+                    socket.send(packet);
+                    
+                    messageToSend.createMessage(multiCastClient.getFreeStorageServer());
+                    packet.setData(MessageSerializer.serializePDMessage(messageToSend));
+                    socket.send(packet);
+                    
+                } catch (IOException ex) {
+                    Logger.getLogger(DirectoryService.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+            }
+            else
+            {
+                messageToSend.createMessage("No servers are available at this time. Please try again later.");
+            }            
         }
         else
         {

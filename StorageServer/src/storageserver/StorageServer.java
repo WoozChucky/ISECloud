@@ -44,14 +44,14 @@ public class StorageServer {
         
         StorageSearcher s = new StorageSearcher();
         
-        if(s.masterAvailable())
-        {
+        //if(s.masterAvailable())
+        //{
             //Secondary Server StartUp
-        }
-        else
-        {
+        //}
+        //else
+        //{
             
-        }
+        //}
         
         //System.exit(-1);
         
@@ -122,9 +122,8 @@ public class StorageServer {
                     System.err.println("Got a client. Not accepting anymore clients.");
                 }
                 
-                /*
-                TODO: Maybe try and dont start thread to handle client ?
-                */
+                handleClient(clientSocket);
+
 
                 //starts new service thread to handle client requests in background
                 //new ClientHandleThread(clientSocket).start();
@@ -143,6 +142,60 @@ public class StorageServer {
         } catch (IOException ex) {
             Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private void handleClient(Socket clientSock)
+    {
+        ObjectInputStream in = null; 
+        ObjectOutputStream out = null;
+        
+        PDMessage messageToReceive = null;
+        PDMessage messageToSend = new PDMessage();
+        
+        System.out.println("Accepted connection from "
+                        +  clientSock.getInetAddress().getHostAddress()+ ":" + clientSock.getPort());
+        
+        try
+            {        
+                
+                in = new ObjectInputStream(clientSock.getInputStream());
+                out = new ObjectOutputStream(clientSock.getOutputStream()); 
+                
+                while(true)
+                {
+                    messageToReceive = (PDMessage) in.readObject();
+                    System.out.println("Client Says :" + messageToReceive.Command);
+
+                    messageToSend.createMessage("Lole, estamos a falar huehue");
+                    
+                    out.writeObject(messageToSend);
+                    System.out.println("Server Sent :" + messageToSend.Command);
+                    out.flush();
+                } 
+
+            } catch (IOException | ClassNotFoundException ex) {
+                ex.printStackTrace();
+                Logger.getLogger(StorageServer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            finally
+            {
+                try
+                {                    
+                    in.close(); 
+                    out.close(); 
+                    clientSock.close(); 
+                    System.out.println("...Stopped"); 
+                } 
+                catch(IOException e) 
+                { 
+                    e.printStackTrace(); 
+                }
+            }
+        
+        
+        
+        
+        
     }
     
     class ClientHandleThread extends Thread {
@@ -288,7 +341,7 @@ public class StorageServer {
             return;
         }
         
-        StorageServer server = new StorageServer(9090, new File(args[0]));
+        StorageServer server = new StorageServer(9000, new File(args[0]));
         server.listen();
     }
     

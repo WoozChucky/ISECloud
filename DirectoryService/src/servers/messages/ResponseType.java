@@ -19,5 +19,6 @@ public enum ResponseType {
     FINISH_DOWNLOAD, 
     EXIT,
     REMOVE_LOCAL,
-    CHECK_FILE_EXISTS
+    CHECK_FILE_EXISTS,
+    CONNECT_TCP
 }

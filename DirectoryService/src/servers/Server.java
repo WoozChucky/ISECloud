@@ -19,7 +19,7 @@ public class Server {
     private int _seconds;
     private boolean _isAvailable;
     
-    public Server(String host, int port, boolean master)
+    public Server(String host, int port, boolean master, boolean available)
     {
         this._host = host;
         this._port = port;
@@ -29,7 +29,7 @@ public class Server {
                 Calendar.getInstance().get(Calendar.HOUR_OF_DAY ) * 60 * 60 + 
                 Calendar.getInstance().get(Calendar.MINUTE) * 60 +
                 Calendar.getInstance().get(Calendar.SECOND);
-        this._isAvailable = true;
+        this._isAvailable = available;
     }
 
     /**
@@ -105,14 +105,14 @@ public class Server {
     /**
      * @return the _isAvailable
      */
-    public boolean setAvailable() {
+    public boolean isAvailable() {
         return _isAvailable;
     }
 
     /**
      * @param _isAvailable the _isAvailable to set
      */
-    public void getAvailable(boolean _isAvailable) {
+    public void setAvailable(boolean _isAvailable) {
         this._isAvailable = _isAvailable;
     }
     
